@@ -1,0 +1,644 @@
+Public Function TransposeArray(myarray As Variant) As Variant
+Dim X As Long
+Dim Y As Long
+Dim Xupper As Long
+Dim Yupper As Long
+Dim tempArray As Variant
+    Xupper = UBound(myarray, 2)
+    Yupper = UBound(myarray, 1)
+    ReDim tempArray(Xupper, Yupper)
+    For X = 0 To Xupper
+        For Y = 0 To Yupper
+            tempArray(X, Y) = myarray(Y, X)
+        Next Y
+    Next X
+    TransposeArray = tempArray
+End Function
+
+Function Col_Letter(lngCol As Long) As String
+    Dim vArr
+    vArr = Split(Cells(1, lngCol).Address(True, False), "$")
+    Col_Letter = vArr(0)
+End Function
+
+Function Col_Number(ColumnLetter As String) As Long
+'Convert To Column Number
+   Col_Number = Range(ColumnLetter & 1).Column
+End Function
+
+Function k_s(z As Double) As Double
+    Dim i As Integer
+    Dim n As Double
+    n = 0
+    For i = 1 To 1000
+        n = n + ((-1) ^ (i)) * (2.71828 ^ ((-2) * (i^(2)) * (z^(2))))
+    Next i
+    k_s = 1 + 2 * n
+End Function
+
+Function vsum(vec() As Double, n As Integer) As Double
+    Dim i As Integer
+    Dim osszeg As Double
+    osszeg = 0
+    For i = 1 To n
+        osszeg = osszeg + vec(i)
+    Next i
+    vsum = osszeg
+End Function
+
+Sub Kolmogorov_Szmirnov()
+    Dim i_c As Long
+    Dim i_r As Long
+    Dim d_c As Long
+    Dim d_r As Long
+    Dim data_origin_column As Long
+    Dim clus As Integer
+
+    i_c = Col_Number("AN") 'initial column of Kolmogorov Szmirnov result
+    i_r = 2 'initial row of Kolmogorov Szmirnov result
+    d_c = Col_Number("V") 'pivot generator table's érték's column
+    d_r = 12                'same as upper's row
+    data_origin_column = Col_Number("A") 'original date column
+    clus = 2 'cluster multiply
+
+    Dim i As Integer
+    Dim g As Integer
+    Dim n As Integer
+    Dim vec(3, 11) As String
+    Dim tmp As Double
+    For i = 0 To 4
+        n = Application.Count(Columns(data_origin_column).Cells)
+        'Pécz
+        For g = 1 To 13
+            tmp = Application.Sum(Range(Cells(d_r + i * clus * 13, d_c), Cells(d_r + i * clus * 13 + g * clus, d_c))) 'valos eloszlas
+            tmp = tmp - g / 13 '-elmemeleti eloszlas
+            tmp = VBA.Abs(tmp)
+            tmp = Sqr(n) * tmp
+            tmp = k_s(tmp) 'kolmogorov-szmirnov
+            vec(2, g) = tmp
+            ' old: vec(2, g) = k - k_s(Sqr(n) * VBA.Abs(Application.Sum(Range(Cells(d_r + i * clus * 13, d_c), Cells(d_r + i * clus * 13 + g * clus, d_c))) - g / 13))
+        Next g
+
+        'front
+    Next i
+    Range(Cells(i_r, i_c), Cells(i_r + 11, i_c + 3)) = vec
+
+End Sub
+
+Sub P_F_hozzarendeles(k_o As String, o As String, s As Integer)
+    'variable declaration
+    Dim var As String 'cella tartalma (for debug)
+    Dim var1 As Long 'cella tartalma kerekítve
+    Dim oszlop As String
+    Dim sor As Integer 'hanyadik sor (ez fut végig az adatsoron)
+    Dim cella As String 'segédváltozó (melyik cella)
+    Dim kiir_oszlopba As String
+    '
+    '               CONTROL 'UI'
+    '
+    '       TODO:   pm_day as variable (+- hány napig csinálja)
+    '
+    ' AMIRE FIGYELNI KELL: ez a macró csak akkor működik,
+    ' ha a dátumokat tartalmazó workbook van az előtérben (=nem a Péczely számos)
+
+    kiir_oszlopba = k_o         'passed by further control.. old form:"D"
+    'melyik oszloptól kezdje kiírni
+    '(utána kell hagyni 2*(Abs(+- intervallum))+1 cella minimum
+
+    oszlop = o                   'passed by further control.. old form:"A"
+    'melyik oszlopban van a dátum, amihez rendeljük
+
+    sor = s                      'passed by further control.. old form:2
+    'hanyadik sortól kezdődik a dátum (ez fut végig az adatsoron)
+    '
+    '               END OF CONTROL 'UI'
+    '
+    var = " " 'otherwise it doesn't enters into the iteration
+
+    While (var <> "")
+        cella = oszlop & CStr(sor)
+        var = Range(cella).Value
+        var1 = CLng(Evaluate(var))  'After 12 PM it is the next day!!
+'       separating string to y-m-d varables doesn't works easily since excel stores theese as days passed since 1900 jan 1
+'        searching the corresponding row in the other table
+        Dim i As Integer 'while-ban ez fut végig
+        Dim found As Boolean 'megtalálta-e az adott dátumot (gyorsítás érdekében)
+        Dim var2 As String 'időjárási-szám tárolására
+        found = False
+        i = 1
+        Do While (found <> True)
+        'NOTE TO SELF:
+            'Itt van az a pont ahol bele lehet nyúlni abba hogy -3 +3 -as intervallumon nézze,
+            'ezt el kéne dönteni, hogy mennyire befoláysoljuk kívülről egy control panellel, mondjuk az O1 mező tájékán
+            'HINT: i-3, meg i+3-al lehet befolyásolni, hogy melyik napot olvassa ki....
+            If (ActiveWorkbook.Sheets("Péczely+Front számok").Range("A" & CStr(i)).Value = var1) Then
+            'át kell térni RC indexelésre ha dinakmikusabbra akarjuk csinálni vagy túlfut a Z-n
+                Range(Chr(Asc(kiir_oszlopba) + 4) & CStr(sor)).Value = ActiveWorkbook.Sheets("Péczely+Front számok").Range("E" & (i + 2))
+                Range(Chr(Asc(kiir_oszlopba) + 3) & CStr(sor)).Value = ActiveWorkbook.Sheets("Péczely+Front számok").Range("E" & (i + 1))
+                Range(Chr(Asc(kiir_oszlopba) + 2) & CStr(sor)).Value = ActiveWorkbook.Sheets("Péczely+Front számok").Range("E" & i)
+                Range(Chr(Asc(kiir_oszlopba) + 1) & CStr(sor)).Value = ActiveWorkbook.Sheets("Péczely+Front számok").Range("E" & (i - 1))
+                Range(Chr(Asc(kiir_oszlopba) + 0) & CStr(sor)).Value = ActiveWorkbook.Sheets("Péczely+Front számok").Range("E" & (i - 2))
+
+                Range(Chr(Asc(kiir_oszlopba) + 10) & CStr(sor)).Value = ActiveWorkbook.Sheets("Péczely+Front számok").Range("F" & (i + 2))
+                Range(Chr(Asc(kiir_oszlopba) + 9) & CStr(sor)).Value = ActiveWorkbook.Sheets("Péczely+Front számok").Range("F" & (i + 1))
+                Range(Chr(Asc(kiir_oszlopba) + 8) & CStr(sor)).Value = ActiveWorkbook.Sheets("Péczely+Front számok").Range("F" & i) 'F oszlopban vannak a Péczely számok
+                Range(Chr(Asc(kiir_oszlopba) + 7) & CStr(sor)).Value = ActiveWorkbook.Sheets("Péczely+Front számok").Range("F" & (i - 1))
+                Range(Chr(Asc(kiir_oszlopba) + 6) & CStr(sor)).Value = ActiveWorkbook.Sheets("Péczely+Front számok").Range("F" & (i - 2))
+
+                found = True
+            ElseIf (i < 10000) Then
+                i = i + 1 'I miss C++ so much
+            Else
+                Exit Do
+            End If
+        Loop
+        sor = sor + 1
+    Wend
+
+End Sub
+Sub create_pivot_table(k_o As String, k_s As Integer, d_c As String, d_r As Integer, ma_o As Integer, mi_o As Integer, noC As Integer, c_columns() As String, c_type() As Integer)
+'pivot table-t csinál, ami után már csak pár kattintás --> profit + programozók számára nem kell leírni hogy mit csináltam
+'version fetures:
+'       nincsenek alcsoportok, csak a meterológiai szám fajtája, a +- nap, a meterológiai szám, és az érték
+'       semmi mást nem tud ezenkívül :'(
+'       automatikusan kikeresi az adott intervallumot a Péczely számok közül -- now building it
+'
+'Variables:
+
+Dim kezdo_oszlop As String
+Dim kezdo_sor As Integer
+Dim i As Integer        'For cycle
+Dim j As Integer        'For cycle
+Dim pm_day As Integer
+Dim csoportszam As Integer
+Dim data_column As String
+Dim data_row As Integer
+Dim max_oszlop As Integer
+Dim min_oszlop As Integer
+Dim command As String 'can be optimized out?
+'
+'               CONTROL 'UI'
+'
+kezdo_oszlop = k_o  '"S"  'pivot table kezdeti cellája
+kezdo_sor = k_s + 1   '10
+data_column = d_c   '"D"    'péczely számok kezdő oszlopa
+data_row = d_r      '2        'péczely számok kezdő sora
+max_oszlop = ma_o 'a dátumok maximumát tartalmazó oszlop a Péczely listában (max, és utána kell ctrl+f-el keresni)
+min_oszlop = mi_o  'ugyanennek a minimuma
+'
+'               END OF CONTROL 'UI'
+'
+'Autokikeresése a számok kezdetének és végének
+
+Range(k_o & CStr(k_s)).Formula = "you have to rename the cluster columns"
+
+pm_day = 2 'do not change it yet
+csoportszam = noC 'old: =1
+
+'here comes the header
+    Range(Chr(Asc(kezdo_oszlop)) & CStr(kezdo_sor)).Formula = "Meteorológiai szám"
+    Range(Chr(Asc(kezdo_oszlop) + 1) & CStr(kezdo_sor)).Formula = "Nap"
+    Range(Chr(Asc(kezdo_oszlop) + 2) & CStr(kezdo_sor)).Formula = "Szám"
+    Range(Chr(Asc(kezdo_oszlop) + 3) & CStr(kezdo_sor)).Formula = "Érték"
+    For i = 1 To noC
+        Range(Chr(Asc(kezdo_oszlop) + 3 + i) & CStr(kezdo_sor)).Formula = "Cluster [" & i & "] From column [" & c_columns(i) & "]"
+    Next i
+
+
+
+'multiplier for the clusters
+Dim clus As Integer
+clus = 1
+For i = 1 To noC
+    clus = clus * c_type(i)
+Next i
+
+Dim n_pecz As Integer   'hany darab peczely lesz
+Dim n_front As Integer  'hany darab front lesz
+
+n_pecz = 13 * (2 * pm_day + 1) * clus
+n_front = 9 * (2 * pm_day + 1) * clus
+
+'here comes the 1st column (meteorológiai szám)
+'Péczely
+
+Dim data_chunk() As String    'optimize
+ReDim data_chunk(n_pecz)
+
+For i = 0 To n_pecz - 1
+    data_chunk(i) = "Péczely"
+    'Range(Chr(Asc(kezdo_oszlop)) & CStr(kezdo_sor) + i).Formula = "Péczely"
+Next i
+    Range(kezdo_oszlop & CStr(kezdo_sor + 1) & ":" & kezdo_oszlop & CStr(kezdo_sor + n_pecz)).Formula = data_chunk
+
+
+'Front
+ReDim data_chunk(n_front)
+For i = 0 To n_front - 1
+    data_chunk(i) = "Front"
+    'Range(Chr(Asc(kezdo_oszlop)) & CStr(kezdo_sor) + i).Formula = "Front"
+Next i
+Range(kezdo_oszlop & CStr(kezdo_sor + n_pecz + 1) & ":" & kezdo_oszlop & CStr(kezdo_sor + n_pecz + n_front)).Formula = data_chunk
+
+'2nd column (nap)
+Dim g As Integer
+ReDim data_chunk(n_pecz)
+'Péczely
+For i = -pm_day To pm_day
+    'adott napja
+    For j = 0 To 12
+        'cluster multiply
+        For g = 0 To clus   'g=1
+            data_chunk(((i + pm_day) * 13 * clus) + (j * clus) + g) = CStr(i)
+            'Range((Chr(Asc(kezdo_oszlop) + 1)) & CStr(((kezdo_sor + (i + pm_day) * 13 * clus) + j * clus) + g)).Formula = CStr(i)
+        Next g
+    Next j
+Next i
+cella = Chr(Asc(kezdo_oszlop) + 1) & CStr(kezdo_sor + 1) & ":" & Chr(Asc(kezdo_oszlop) + 1) & CStr(kezdo_sor + n_pecz)
+Range(Chr(Asc(kezdo_oszlop) + 1) & CStr(kezdo_sor + 1) & ":" & Chr(Asc(kezdo_oszlop) + 1) & CStr(kezdo_sor + n_pecz)).Formula = Application.Transpose(data_chunk)
+
+'Front
+For i = -pm_day To pm_day
+    'adott napja
+    For j = 0 To 8
+        'cluster multiply
+        For g = 1 To clus
+            Range((Chr(Asc(kezdo_oszlop) + 1)) & CStr(((kezdo_sor + (i + pm_day) * 9 * clus) + j * clus) + g + n_pecz)).Formula = CStr(i)
+        Next g
+    Next j
+Next i
+
+'3rd column (current version:Szám)
+'Péczely
+For i = -pm_day To pm_day
+    'adott napja
+    For j = 0 To 12
+        'cluster multiply
+        For g = 1 To clus
+            Range((Chr(Asc(kezdo_oszlop) + 2)) & CStr(((kezdo_sor + (i + pm_day) * 13 * clus) + j * clus) + g)).Formula = CStr(j + 1)
+        Next g
+    Next j
+Next i
+'Front
+For i = -pm_day To pm_day
+    'adott napja
+    For j = 0 To 8
+        'cluster multiply
+        For g = 1 To clus
+            Range((Chr(Asc(kezdo_oszlop) + 2)) & CStr(((kezdo_sor + (i + pm_day) * 9 * clus) + j * clus) + g + n_pecz)).Formula = CStr(j + 1)
+        Next g
+    Next j
+Next i
+'4th column (current version: Érték)
+'Péczely
+
+
+'replaced ; with , because #excel
+'
+'SO THE OFFICIAL SOLUTION: Excel <-> VBA interface is written in english, so use english locale, Excel will translate it automatically
+'like this:
+'command = "=COUNTIFS(" & Chr(Asc(data_column)) & ":" & Chr(Asc(data_column)) & "," & Range(Chr(Asc(kezdo_oszlop) + 2) & CStr(4)) & ")" & " / " & "COUNTIFS('Péczely+Front számok'!$E$" & min_oszlop & ":$E$" & max_oszlop & "," & Range(Chr(Asc(kezdo_oszlop) + 2) & CStr(4)) & ")"
+'Range(Chr(Asc(kezdo_oszlop) + 3) & CStr(kezdo_sor + 1)).Formula = command
+'
+'
+'#Iloveyouverymuch but it doesn't worked
+'Range(Chr(Asc(kezdo_oszlop) + 3) & CStr(kezdo_sor + 1)).Formula = Range(Chr(Asc(kezdo_oszlop) + 3) & CStr(kezdo_sor + 1)).Formula
+'
+'
+' archieved testing zone
+'
+'command = "DARABHATÖBB('Péczely+Front számok'!$E$" & min_oszlop & ":$E$" & max_oszlop & ";" & Range(Chr(Asc(kezdo_oszlop) + 2) & CStr(4)) & ")"
+'command_2 = "DARABHATÖBB(" & Chr(Asc(data_column)) & ":" & Chr(Asc(data_column)) & ";" & Range(Chr(Asc(kezdo_oszlop) + 2) & CStr(4)) & ")"
+'fullcommand = """" & command_2 & " / " & command & """"
+'
+'
+'
+'
+' For the sake of documentation, don't delete the following!!!!!!!!!!!!!!!!!!
+'       Péczely szám realtív gyakoriság (80% h az)
+'       p_sz = "'Péczely+Front számok'!$E$" & min_oszlop & ":$E$" & max_oszlop & ";" &Range(Chr(Asc(kezdo_oszlop)) + 2 & //offset+for ciklusban hol tart//)&""
+'
+'       command="""='Péczely+Front számok'!$E$" & min_oszlop & ":$E$" & max_oszlop
+'
+'       ccat = Range(Chr(Asc(kezdo_oszlop)) + 2 & //offset+for ciklusban hol tart//                  //=oszlop -1
+'       )&""
+'
+'       p_sz="=DARABHATÖBB(//command//;//ccat//
+'
+'       Esetszám:
+'
+'       e_sz=       "DARABHATÖBB(" & Chr(Asc(data_column)) & ":" & Chr(Asc(data_column)) & ";" & Range(Chr(Asc(kezdo_oszlop) + 2) & //offset+for ciklusban hol tart//)&")"
+'
+'       =DARABHATÖBB(H:H;V33)
+'
+'
+'       full_command= //    "=" & e_sz & "/" & p_sz    //
+'
+'Actual code:
+'4th column (érték) AKA ultimate cancer
+Dim h As Integer
+Dim p1 As String
+Dim p2 As String
+Dim p_cr As String
+Dim pf() As String        'parts of the command
+
+ReDim pf(noC)
+'Péczely számokra:
+For i = -pm_day To pm_day
+    'adott napja
+    'parancs első része:
+    command = ""
+    p1 = "=COUNTIFS(" & Chr(Asc(data_column) + (i + pm_day)) & ":" & Chr(Asc(data_column) + (i + pm_day)) & "," & Chr(Asc(kezdo_oszlop) + 2)
+    'például:  =DARABHATÖBB(                C                   :                        C                   ,      oszlop::szám
+
+    For j = 0 To 12
+    'Adott Péczely szám
+
+
+        For g = 1 To clus
+            'adott clustervariációban
+            sor = CStr(kezdo_sor + ((i + pm_day) * 13 * clus + clus * j + g)) 'ez a változó végigfut minden egyes soron
+            p2 = sor
+            '                        adott sor
+            command = p1 & p2
+            For h = 1 To noC
+                pf(h) = "," & c_columns(h) & ":" & c_columns(h) & "," & Chr(Asc(kezdo_oszlop) + 3 + h) & CStr(sor)
+                '        ,      H             :       H            ,        h-vel arrébbi oszlop         adott sora
+                command = command & pf(h)
+            Next h
+            command = command & ")" & " / " & "COUNTIFS('Péczely+Front számok'!$E$" & min_oszlop & ":$E$" & max_oszlop & "," & Chr(Asc(kezdo_oszlop) + 2) & CStr(sor) & ")"
+            'beírni az adott cellába:
+            Range(Chr(Asc(kezdo_oszlop) + 3) & sor).Formula = command
+        Next g
+    Next j
+Next i
+
+'old one was sg like this:
+     'command = "=COUNTIFS(" & Chr(Asc(data_column) + i + pm_day) & ":" & Chr(Asc(data_column) + i + pm_day) & "," & Chr(Asc(kezdo_oszlop) + 2) & CStr(kezdo_sor + i * 13 + j + 1) & ")" & " / " & "COUNTIFS('Péczely+Front számok'!$E$" & min_oszlop & ":$E$" & max_oszlop & "," & Chr(Asc(kezdo_oszlop) + 2) & CStr(kezdo_sor + i * 13 + j + 1) & ")"
+     'Range(Chr(Asc(kezdo_oszlop) + 3) & CStr(kezdo_sor + 1 + i * 13 + j)).Formula = command
+
+
+'Front
+For i = -pm_day To pm_day
+    'adott napja
+    'parancs első része:
+    command = ""
+    p1 = "=COUNTIFS(" & Chr(Asc(data_column) + (2 * pm_day + 2) + (i + pm_day)) & ":" & Chr(Asc(data_column) + (2 * pm_day + 2) + (i + pm_day)) & "," & Chr(Asc(kezdo_oszlop) + 2)
+    'például:  =DARABHATÖBB(                C                                      :                        C                                      ,      oszlop:szám
+
+    For j = 0 To 8
+    'Adott Péczely szám
+
+
+        For g = 1 To clus
+            'adott clustervariációban
+            sor = CStr(kezdo_sor + n_pecz + ((i + pm_day) * 9 * clus + clus * j + g)) 'ez a változó végigfut minden egyes soron
+            p2 = sor
+            '                        adott sor
+            command = p1 & p2
+            For h = 1 To noC
+                pf(h) = "," & c_columns(h) & ":" & c_columns(h) & "," & Chr(Asc(kezdo_oszlop) + 3 + h) & CStr(sor)
+                '        ,      H             :       H            ,        h-val arrébbi oszlop         adott sora
+                command = command & pf(h)
+            Next h
+            command = command & ")" & " / " & "COUNTIFS('Péczely+Front számok'!$F$" & min_oszlop & ":$F$" & max_oszlop & "," & Chr(Asc(kezdo_oszlop) + 2) & CStr(sor) & ")"
+            'beírni az adott cellába:
+            Range(Chr(Asc(kezdo_oszlop) + 3) & sor).Formula = command
+        Next g
+    Next j
+Next i
+
+'old:
+'For i = 0 To 4
+'    For j = 0 To 8
+    'adott nap
+    'például:  =DARABHATÖBB(       C             :            C                ,               R                                         4           )      /     DARABHAöBB('Péczely+Front számok'!$E      $min        :$E      $max         ,          R                                           4              )
+'    command = "=COUNTIFS(" & Chr(Asc(data_column) + i + 6) & ":" & Chr(Asc(data_column) + i + 6) & "," & Chr(Asc(kezdo_oszlop) + 2) & CStr(kezdo_sor + 5 * 13 + i * 9 + j + 1) & ")" & " / " & "COUNTIFS('Péczely+Front számok'!$F$" & min_oszlop & ":$F$" & max_oszlop & "," & Chr(Asc(kezdo_oszlop) + 2) & CStr(kezdo_sor + 5 * 13 + i * 9 + j + 1) & ")"
+'    Range(Chr(Asc(kezdo_oszlop) + 3) & CStr(kezdo_sor + 5 * 13 + 1 + i * 9 + j)).Formula = command
+'    Next
+'Next
+
+
+'clusterek:
+'just realised, that Péczely+Front are abstracted clusters, wich is solvable, by running down the control twice
+'Dim rclus As Integer 'clus value for reamining columns
+Dim oclus As Integer 'clus for the passed rows -- yeah, i know it's f***ed up
+Dim l As Integer
+Dim m As Integer
+
+c_type(0) = 1
+
+'Péczelyre
+For h = 1 To noC
+    clus = 1
+    For i = h + 1 To noC
+        clus = clus * c_type(i)
+    Next i
+
+    oclus = 1
+    For m = 0 To h - 1
+        oclus = oclus * c_type(m)
+    Next m
+
+    For i = -pm_day To pm_day
+        For j = 0 To 12
+            For m = 0 To oclus - 1 'don't ask me, it works (it's a multiplyer, because if you forget this loop, the output will be cells.count/oclus)
+                For l = 0 To (c_type(h) - 1)
+                    Value = l + 1
+                    For k = 0 To clus - 1
+                        '     offset        special snowf**c*    +   value    +      day                          naugthy b**ch+       péczely      naughty b**ch+sg+offset in the beginning
+                        sor = kezdo_sor + (m * c_type(h) * clus) + (l * clus) + ((i + pm_day) * 13 * c_type(h) * clus * oclus) + (j * c_type(h) * clus * oclus) + k + 1
+                        cella = Chr(Asc(kezdo_oszlop) + 3 + h) & CStr(sor)
+                        Range(cella).Formula = Value
+                    Next k
+                Next l
+            Next m
+        Next j
+    Next i
+Next h
+
+'és Frontra a maradék oszlopok --- changes: offset become higher, instead of *13 there's *9
+For h = 1 To noC
+    clus = 1
+    For i = h + 1 To noC
+        clus = clus * c_type(i)
+    Next i
+
+    oclus = 1
+    For m = 0 To h - 1
+        oclus = oclus * c_type(m)
+    Next m
+
+    For i = -pm_day To pm_day
+        For j = 0 To 8
+            For m = 0 To oclus - 1 'don't ask me, it works (it's a multiplyer, because if you forget this loop, the output will be cells.count/oclus)
+                For l = 0 To (c_type(h) - 1)
+                    Value = l + 1
+                    For k = 0 To clus - 1
+                        '     offset        special snowf**c*    +   value    +      day                          naugthy b**ch+       péczely      naughty b**ch+sg+offset in the beginning
+                        sor = kezdo_sor + (m * c_type(h) * clus) + (l * clus) + ((i + pm_day) * 9 * c_type(h) * clus * oclus) + (j * c_type(h) * clus * oclus) + k + 1 + n_pecz
+                        cella = Chr(Asc(kezdo_oszlop) + 3 + h) & CStr(sor)
+                        Range(cella).Formula = Value
+                    Next k
+                Next l
+            Next m
+        Next j
+    Next i
+Next h
+
+
+
+
+
+
+
+End Sub
+Function min(d_s_c As String, d_s_r As Integer)
+    'a dátumok maximumát tartalmazó oszlop a Péczely listában (max, és utána kell ctrl+f-el keresni) <- programosítva
+    Dim cell_d As String
+    Dim minn As Integer
+    Dim The_Range As Range 'debug
+
+    Set The_Range = Application.Range(d_s_c & ":" & d_s_c)
+With The_Range
+    'From stackoverflow
+    Dim MinNum As Variant
+    Dim cell As Range
+
+     ' Sets variable equal to maximum value in the input range.
+     MinNum = Application.min(The_Range)
+     ' Loop to check each cell in the input range to see if equals the
+     ' MaxNum variable.
+     For Each cell In Sheets("Péczely+Front számok").Range("A:A")
+        If cell.Value = MinNum Then
+            ' If the cell value equals the MaxNum variable it
+            ' returns the address to the function and exits the loop.
+            minn = cell.Row
+            Exit For
+        End If
+    Next cell
+End With
+min = minn
+End Function
+Function max(d_s_c As String, d_s_r As Integer)
+    'a dátumok maximumát tartalmazó oszlop a Péczely listában (max, és utána kell ctrl+f-el keresni) <- programosítva
+    Dim cell_d As String
+    Dim minn As Integer
+    Dim The_Range As Range 'debug
+
+    Set The_Range = Application.Range(d_s_c & ":" & d_s_c)
+With The_Range
+    'From stackoverflow
+    Dim MaxNum As Variant
+    Dim cell As Range
+
+     ' Sets variable equal to maximum value in the input range.
+     MaxNum = Application.max(The_Range)
+     ' Loop to check each cell in the input range to see if equals the
+     ' MaxNum variable.
+     For Each cell In Sheets("Péczely+Front számok").Range("A:A")
+        If cell.Value = MaxNum Then
+            ' If the cell value equals the MaxNum variable it
+            ' returns the address to the function and exits the loop.
+            maxx = cell.Row
+            Exit For
+        End If
+    Next cell
+End With
+max = maxx
+End Function
+
+Sub cpy_p_f_sz()
+'for péczely copy
+'have to overwrite wahtever it is there
+    Dim test As Worksheet
+    Dim act As Worksheet
+    Dim actw As Workbook
+    'ActiveWorkbook will refer to the workbook that is currently active in the Excel session.
+    'ThisWorkbook refers to the workbook where the macro code resides.
+    Set actw = ActiveWorkbook
+    Dim i As Integer
+    'delete old
+    Application.DisplayAlerts = False
+    For i = 1 To Worksheets.Count
+        If Worksheets(i).Name Like "Péczely+Front számok" Then
+            Worksheets(i).Delete
+        End If
+    Next i
+    Application.DisplayAlerts = True
+    Set act = ActiveSheet
+
+    Workbooks("Peczely_makrostul_uj.xlsm").Sheets("Péczely+Front számok_original").Copy After:=Sheets(Sheets.Count)
+    Set test = ActiveSheet
+    test.Name = "Péczely+Front számok"
+    actw.Activate
+    act.Activate
+End Sub
+
+Sub control()
+'Variables:
+Application.ScreenUpdating = False
+Application.Calculation = xlCalculationManual
+Dim oszlop As String
+Dim sor As Integer
+Dim kiir_oszlopba As String
+
+Dim kezdo_oszlop As String
+Dim kezdo_sor As Integer
+Dim max_oszlop As Integer
+Dim min_oszlop As Integer
+Dim noC As Integer
+Dim c_columns() As String 'cluster columns
+Dim c_type() As Integer 'cluster type
+'c_columns[1] <-> c_type[1]
+'c_columns[2] <-> c_type[2]
+'              .
+'              .
+'              .
+'c_columns[n] <-> c_type[n]
+
+'
+'Control UI
+'
+
+'p_hr
+    oszlop = "B"
+    'melyik oszlopban van a dátum, amihez rendeljük
+
+    sor = 2
+    'hanyadik sortól kezdődik a dátum (ez fut végig az adatsoron)
+
+    kiir_oszlopba = "E"
+    'melyik oszloptól kezdje kiírni
+    '(utána kell hagyni minimum 2*(Abs(+- intervallum))+1 helynyi oszlopot szabadon
+
+'b_pt
+    kezdo_oszlop = "S"  'pivot table kezdeti cellája
+    kezdo_sor = 10
+    'start of clusters:
+    noC = 3 'hány alcsoport van, ami szerint szűrni akarunk, manually refresh this (or the code is broken)
+
+    ReDim c_columns(noC)
+    ReDim c_type(noC)
+
+    c_columns(1) = "A"   'cluster columns... rows are the same as in the date, otherwise it doesn't makes sense
+    c_type(1) = 2       'cluster possible outcomes
+    c_columns(2) = "C"
+    c_type(2) = 4
+    c_columns(3) = "D"
+    c_type(3) = 3
+    'end of clusters
+'
+'END OF CONTROL UI
+'
+
+Call cpy_p_f_sz
+min_oszlop = min(oszlop, sor)
+max_oszlop = max(oszlop, sor)
+Call P_F_hozzarendeles(kiir_oszlopba, oszlop, sor)
+Call create_pivot_table(kezdo_oszlop, kezdo_sor, kiir_oszlopba, sor, max_oszlop, min_oszlop, noC, c_columns, c_type)
+'Calculate
+Application.Calculation = xlCalculationAutomatic
+Application.ScreenUpdating = True
+MsgBox ("Aaaaand, it's done!")
+End Sub
